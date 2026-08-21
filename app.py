@@ -19,9 +19,9 @@ import msoffcrypto
 st.set_page_config(page_title="物料提取工具", layout="wide")
 
 # ============================================================
-# 2. 万能使用码
+# 2. 万能使用码（已更新）
 # ============================================================
-MASTER_CODES = ["VIP888", "TEST123", "ADMIN666"]
+MASTER_CODES = ["YVIP888", "Y1006"]
 
 # ============================================================
 # 3. 数据库
@@ -81,7 +81,7 @@ def add_permanent(username):
 
 
 # ============================================================
-# 4. 工具函数（从原提取工具迁移）
+# 4. 工具函数
 # ============================================================
 def is_encrypted(file_path):
     try:
@@ -305,36 +305,27 @@ def get_column_letter_by_index(idx):
 
 
 # ============================================================
-# 5. 核心提取函数（整合原 extract_data 全部逻辑）
+# 5. 核心提取函数
 # ============================================================
 def run_extraction(master_file, recipe_file, title_text, new_material_codes, master_pwd, recipe_pwd):
-    """
-    执行完整的 Excel 提取流程
-    参数均为 Streamlit 上传的文件对象和用户输入
-    返回生成的 Excel 文件路径
-    """
     try:
-        # ---- 步骤1：处理母表 ----
-        # 保存母表到临时文件
+        # ---- 处理母表 ----
         with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as f:
             f.write(master_file.read())
             master_path = f.name
-        master_file.seek(0)  # 重置文件指针
+        master_file.seek(0)
 
-        # 解密母表
         if master_pwd:
             decrypted_master = decrypt_file(master_path, master_pwd)
         else:
             with open(master_path, "rb") as f:
                 decrypted_master = io.BytesIO(f.read())
 
-        # 解析母表（处理合并单元格、多工作表）
         df_master = process_merged_cells_from_bytes(decrypted_master)
         if df_master.empty:
             os.unlink(master_path)
             return None
 
-        # 识别母表列
         id_col = find_column_by_keywords(df_master, ['编码', '编号'])
         if id_col is None:
             os.unlink(master_path)
@@ -348,13 +339,12 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
         supplier_col = find_column_by_keywords(df_master, ['生产商'])
         purpose_col = find_column_by_keywords(df_master, ['原料属性', '类别', '主要使用目的'])
 
-        # ---- 步骤2：处理配方表 ----
+        # ---- 处理配方表 ----
         with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as f:
             f.write(recipe_file.read())
             recipe_path = f.name
         recipe_file.seek(0)
 
-        # 解密配方表
         if recipe_pwd:
             decrypted_recipe = decrypt_file(recipe_path, recipe_pwd)
         else:
@@ -363,7 +353,6 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
 
         df_recipe_raw = read_recipe_table(decrypted_recipe)
 
-        # 识别配方表表头
         code_keywords = ['原料代码', '代码', '物料代码', '原料编号', '编号', '编码', 'code', 'Code']
         ratio_keywords = ['配比', '比例', '含量%', '添加量', '用量', '含量', 'ratio', 'Ratio']
         short_name_keywords = ['原料简称', '原料简名', '简名', '简称', '名称', '原料名', 'name', 'Name']
@@ -404,7 +393,7 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
 
         start_row = header_row + 1
 
-        # ---- 步骤3：阶段一 - 合并配比 ----
+        # ---- 阶段一：合并配比 ----
         raw_records = []
         for idx in range(start_row, len(df_recipe_raw)):
             code = df_recipe_raw.iloc[idx, code_col]
@@ -448,7 +437,7 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
 
         nocode_records = [rec for rec in raw_records if rec['is_nocode']]
 
-        # ---- 步骤4：匹配母表生成结果 ----
+        # ---- 阶段二：匹配母表生成结果 ----
         results = []
         group_id_list = []
         group_id_counter = 1
@@ -559,7 +548,7 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
 
         df_result = pd.DataFrame(results)
 
-        # ---- 步骤5：排序 ----
+        # ---- 排序 ----
         df_result['_sort_key'] = pd.to_numeric(df_result['原料含量 (%)'], errors='coerce')
         df_result = df_result.sort_values(
             by=['_sort_key', '_group_id'],
@@ -568,19 +557,19 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
         )
         df_result = df_result.drop(columns=['_sort_key'])
 
-        # ---- 步骤6：生成原料序号 ----
+        # ---- 生成原料序号 ----
         group_ids = df_result['_group_id'].unique()
         group_id_to_seq = {gid: idx + 1 for idx, gid in enumerate(group_ids)}
         df_result['原料序号'] = df_result['_group_id'].map(group_id_to_seq)
         sorted_group_ids = df_result['_group_id'].tolist()
         df_result = df_result.drop(columns=['_group_id', '_code'])
 
-        # ---- 步骤7：写入Excel ----
+        # ---- 写入Excel ----
         base = title_text if title_text else "提取结果"
         output_file = f"{base}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         df_result.to_excel(output_file, index=False)
 
-        # ---- 步骤8：插入标题行 ----
+        # ---- 插入标题行 ----
         if title_text:
             wb = load_workbook(output_file)
             ws = wb.active
@@ -593,7 +582,7 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
             ws.row_dimensions[1].height = 40
             wb.save(output_file)
 
-        # ---- 步骤9：写入公式 ----
+        # ---- 写入公式 ----
         wb = load_workbook(output_file)
         ws = wb.active
         header_row = 2 if title_text else 1
@@ -655,10 +644,10 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
                     pass
             wb.save(output_file)
 
-        # ---- 步骤10：合并复合原料 ----
+        # ---- 合并复合原料 ----
         merge_group_rows(output_file, title_text, sorted_group_ids)
 
-        # ---- 步骤11：标红逻辑 ----
+        # ---- 标红逻辑 ----
         wb = load_workbook(output_file)
         ws = wb.active
         header_row = 2 if title_text else 1
@@ -747,7 +736,6 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
         return output_file
 
     except Exception as e:
-        # 清理临时文件
         try:
             os.unlink(master_path)
         except:
@@ -760,7 +748,7 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
 
 
 # ============================================================
-# 6. 登录/注册界面（增加游客入口）
+# 6. 登录/注册界面
 # ============================================================
 def auth_page():
     st.title("🔐 登录 / 注册")
@@ -796,7 +784,6 @@ def auth_page():
                 else:
                     st.error("用户名已存在")
     
-    # ===== 游客入口 =====
     st.markdown("---")
     st.caption("不想注册？")
     if st.button("👤 以游客身份体验（需付费解锁）"):
@@ -805,14 +792,12 @@ def auth_page():
 
 
 # ============================================================
-# 7. 主功能界面（兼容游客）
+# 7. 主功能界面
 # ============================================================
 def main_page():
-    # 判断是否为游客
     is_guest = (st.session_state.user == "guest")
     
     if is_guest:
-        # 游客：没有数据库记录，剩余次数视为0，永久授权取决于session
         remaining = 0
         is_permanent = st.session_state.get("guest_authorized", False)
     else:
@@ -876,7 +861,6 @@ def main_page():
                 # 有剩余次数，正常使用
                 pass
         
-        # 显示付费引导（游客或次数用尽的注册用户）
         if (is_guest) or (not is_guest and remaining <= 0):
             st.markdown("""
             ### 💳 付费解锁永久授权
@@ -890,9 +874,9 @@ def main_page():
                 st.image("wechat_qr.png", caption="微信收款码", width=250)
             else:
                 st.info("请将收款码图片命名为 wechat_qr.png 放在本程序同目录下")
-            return  # 阻止继续显示功能区域
+            return
     
-    # ====== 正常功能区域（有权限时才显示） ======
+    # ====== 正常功能区域 ======
     st.subheader("📁 上传文件")
     
     title_text = st.text_input("表格标题（将作为文件名）", placeholder="例如：如微胶原抗皱面霜配方")
@@ -914,10 +898,8 @@ def main_page():
         if not master_file or not recipe_file:
             st.error("请上传母表和配方表")
         else:
-            # 如果是注册用户且非永久，扣减次数
             if not is_guest and not is_permanent:
                 deduct_use(st.session_state.user)
-            # 游客不扣减次数（因为无数据库记录）
             
             with st.spinner("⏳ 正在处理，请稍候..."):
                 try:
