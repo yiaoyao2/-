@@ -24,10 +24,9 @@ st.set_page_config(
 )
 
 # ============================================================
-# 2. 自定义 CSS（含背景）
+# 2. 自定义 CSS（含毛玻璃、卡片等）
 # ============================================================
 def load_css(theme="light"):
-    # 背景图片（可选），默认使用渐变色
     if theme == "dark":
         bg = "linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%)"
         card_bg = "rgba(30, 30, 60, 0.85)"
@@ -103,8 +102,16 @@ def load_css(theme="light"):
     .stButton > button {{
         border-radius: 10px !important;
         font-weight: 500 !important;
-        padding: 8px 24px !important;
+        padding: 6px 18px !important;
         transition: all 0.3s ease !important;
+        border: 1px solid {border_color} !important;
+        background: {card_bg} !important;
+        color: {text_color} !important;
+        font-size: 13px !important;
+    }}
+    .stButton > button:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px {shadow_color};
     }}
     .stButton > button[kind="primary"] {{
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
@@ -112,36 +119,70 @@ def load_css(theme="light"):
         border: none !important;
     }}
     .stButton > button[kind="primary"]:hover {{
-        transform: translateY(-2px);
         box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
     }}
-    .theme-toggle {{
-        display: inline-flex;
+    .stButton > button[kind="secondary"] {{
+        background: transparent !important;
+        border: 1px solid #dc3545 !important;
+        color: #dc3545 !important;
+    }}
+    .stButton > button[kind="secondary"]:hover {{
+        background: #dc3545 !important;
+        color: white !important;
+    }}
+    .status-bar {{
+        display: flex;
+        justify-content: space-between;
         align-items: center;
-        gap: 6px;
+        flex-wrap: wrap;
+        gap: 8px;
         background: {card_bg};
+        padding: 10px 16px;
+        border-radius: 12px;
         border: 1px solid {border_color};
-        border-radius: 30px;
-        padding: 4px 6px;
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        color: {text_color};
+        margin-bottom: 16px;
         backdrop-filter: blur(10px);
     }}
-    .theme-toggle .dot {{
-        display: inline-block;
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        background: #667eea;
-        color: white;
-        text-align: center;
-        line-height: 28px;
-        font-size: 14px;
-        transition: transform 0.3s ease;
+    .status-left {{
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
     }}
+    .status-right {{
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }}
+    .badge-success {{ background: #d4edda; color: #155724; padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; }}
+    .badge-warning {{ background: #fff3cd; color: #856404; padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; }}
+    .badge-danger {{ background: #f8d7da; color: #721c24; padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; }}
+    .badge-info {{ background: #d1ecf1; color: #0c5460; padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; }}
+    .progress-container {{ width: 100%; height: 8px; background: {border_color}; border-radius: 4px; overflow: hidden; margin: 6px 0; }}
+    .progress-bar {{ height: 100%; background: linear-gradient(90deg, #4a90d9, #6ab04c); border-radius: 4px; transition: width 0.5s ease; }}
+    .card {{
+        background: {card_bg};
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin-bottom: 16px;
+        border: 1px solid {border_color};
+        box-shadow: 0 2px 8px {shadow_color};
+        transition: box-shadow 0.2s;
+    }}
+    .card:hover {{ box-shadow: 0 4px 16px {shadow_color}; }}
+    .card-title {{ font-size: 16px; font-weight: 600; color: {text_color}; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }}
+    .badge {{ font-size: 12px; font-weight: 400; background: #e8ecf1; color: #555; padding: 2px 10px; border-radius: 12px; margin-left: 8px; }}
+    .steps {{ display: flex; justify-content: space-between; align-items: center; margin: 8px 0 16px 0; padding: 0 4px; }}
+    .step-item {{ display: flex; align-items: center; gap: 8px; font-size: 14px; color: {text_color}; opacity: 0.5; transition: opacity 0.3s; }}
+    .step-item.active {{ opacity: 1; font-weight: 600; }}
+    .step-item.done {{ opacity: 0.8; }}
+    .step-number {{ display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #e8ecf1; color: #555; font-size: 13px; font-weight: 600; }}
+    .step-item.active .step-number {{ background: #4a90d9; color: #fff; }}
+    .step-item.done .step-number {{ background: #28a745; color: #fff; }}
+    .step-line {{ flex: 1; height: 2px; background: {border_color}; margin: 0 8px; }}
+    .step-line.done {{ background: #28a745; }}
+    .footer {{ text-align: center; padding: 16px 0 8px 0; font-size: 13px; color: #999; opacity: 0.7; }}
     .stTabs [data-baseweb="tab-list"] {{
         gap: 8px;
         background: {card_bg};
@@ -160,63 +201,17 @@ def load_css(theme="light"):
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         color: white !important;
     }}
-    .guest-btn {{
-        display: block;
-        text-align: center;
-        margin-top: 16px;
-        padding: 10px;
-        border: 1px dashed {border_color};
-        border-radius: 12px;
-        background: {card_bg};
-        color: {text_color};
-        text-decoration: none;
-        transition: all 0.3s ease;
-        font-size: 14px;
-    }}
-    .guest-btn:hover {{ border-color: #667eea; background: rgba(102, 126, 234, 0.05); }}
-    .footer {{ text-align: center; padding: 16px 0 8px 0; font-size: 13px; color: #999; opacity: 0.7; }}
-    .card {{
-        background: {card_bg};
-        border-radius: 12px;
-        padding: 20px 24px;
-        margin-bottom: 16px;
-        border: 1px solid {border_color};
-        box-shadow: 0 2px 8px {shadow_color};
-        transition: box-shadow 0.2s;
-    }}
-    .card:hover {{ box-shadow: 0 4px 16px {shadow_color}; }}
-    .card-title {{ font-size: 16px; font-weight: 600; color: {text_color}; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }}
-    .badge {{ font-size: 12px; font-weight: 400; background: #e8ecf1; color: #555; padding: 2px 10px; border-radius: 12px; margin-left: 8px; }}
-    .badge-success {{ background: #d4edda; color: #155724; padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; display: inline-block; }}
-    .badge-warning {{ background: #fff3cd; color: #856404; padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; display: inline-block; }}
-    .badge-danger {{ background: #f8d7da; color: #721c24; padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; display: inline-block; }}
-    .badge-info {{ background: #d1ecf1; color: #0c5460; padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; display: inline-block; }}
-    .steps {{ display: flex; justify-content: space-between; align-items: center; margin: 8px 0 16px 0; padding: 0 4px; }}
-    .step-item {{ display: flex; align-items: center; gap: 8px; font-size: 14px; color: {text_color}; opacity: 0.5; transition: opacity 0.3s; }}
-    .step-item.active {{ opacity: 1; font-weight: 600; }}
-    .step-item.done {{ opacity: 0.8; }}
-    .step-number {{ display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #e8ecf1; color: #555; font-size: 13px; font-weight: 600; }}
-    .step-item.active .step-number {{ background: #4a90d9; color: #fff; }}
-    .step-item.done .step-number {{ background: #28a745; color: #fff; }}
-    .step-line {{ flex: 1; height: 2px; background: {border_color}; margin: 0 8px; }}
-    .step-line.done {{ background: #28a745; }}
-    .progress-container {{ width: 100%; height: 8px; background: {border_color}; border-radius: 4px; overflow: hidden; margin: 6px 0; }}
-    .progress-bar {{ height: 100%; background: linear-gradient(90deg, #4a90d9, #6ab04c); border-radius: 4px; transition: width 0.5s ease; }}
     @media (max-width: 768px) {{
         .brand-section {{ min-height: 200px; padding: 24px; border-radius: 16px; }}
         .brand-title {{ font-size: 24px; }}
         .glass-card {{ padding: 24px 20px; }}
-        .theme-toggle {{ font-size: 12px; padding: 2px 4px; }}
-        .theme-toggle .dot {{ width: 24px; height: 24px; line-height: 24px; font-size: 12px; }}
+        .status-bar {{ flex-direction: column; align-items: stretch; }}
+        .status-left, .status-right {{ justify-content: center; }}
         .steps {{ flex-wrap: wrap; gap: 8px; }}
         .step-line {{ display: none; }}
         .step-item {{ font-size: 12px; }}
         .step-number {{ width: 24px; height: 24px; font-size: 11px; }}
     }}
-    ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
-    ::-webkit-scrollbar-track {{ background: {bg}; }}
-    ::-webkit-scrollbar-thumb {{ background: #ccc; border-radius: 4px; }}
-    ::-webkit-scrollbar-thumb:hover {{ background: #aaa; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -991,7 +986,6 @@ def auth_page():
     init_session_state()
     load_css(st.session_state.theme)
     
-    # 主题切换按钮（右上角）
     col_top_left, col_top_right = st.columns([5, 1])
     with col_top_right:
         if st.session_state.theme == "light":
@@ -1002,9 +996,7 @@ def auth_page():
             st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
             st.rerun()
     
-    # 主体布局：左品牌 + 右登录
     col_left, col_right = st.columns([1.2, 1], gap="large")
-    
     with col_left:
         st.markdown("""
         <div class="brand-section">
@@ -1019,14 +1011,11 @@ def auth_page():
             </ul>
         </div>
         """, unsafe_allow_html=True)
-    
     with col_right:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         st.markdown("### 🔐 登录 / 注册")
         st.caption("注册登录后可赠送 3 次免费使用")
-        
         tab1, tab2 = st.tabs(["登录", "注册"])
-        
         with tab1:
             username = st.text_input("用户名", key="login_user", placeholder="请输入用户名")
             password = st.text_input("密码", type="password", key="login_pwd", placeholder="请输入密码")
@@ -1038,7 +1027,6 @@ def auth_page():
                     st.rerun()
                 else:
                     st.error("❌ 用户名或密码错误")
-        
         with tab2:
             new_user = st.text_input("设置用户名", key="reg_user", placeholder="请设置用户名")
             new_pwd = st.text_input("设置密码", type="password", key="reg_pwd", placeholder="至少4位")
@@ -1055,27 +1043,22 @@ def auth_page():
                         st.success("✅ 注册成功！请登录")
                     else:
                         st.error("❌ 用户名已存在")
-        
         st.markdown("---")
         if st.button("👤 以游客身份体验（免费 3 次）", use_container_width=True):
             st.session_state.user = "guest"
             st.session_state.guest_remaining = 3
             st.rerun()
-        
         st.markdown('</div>', unsafe_allow_html=True)
-    
     st.markdown('<div class="footer">备案配方表输出系统 v2.0 · © 2024</div>', unsafe_allow_html=True)
 
 # ============================================================
-# 9. 主功能界面（完整工具界面）
+# 9. 主功能界面
 # ============================================================
 def main_page():
     init_session_state()
     load_css(st.session_state.theme)
     
     is_guest = (st.session_state.user == "guest")
-    
-    # ---- 获取用户状态 ----
     if is_guest:
         if "guest_remaining" not in st.session_state:
             st.session_state.guest_remaining = 3
@@ -1092,52 +1075,46 @@ def main_page():
         remaining = user[3]
         is_permanent = user[4]
     
-    # ---- 顶部标题栏 ----
-    st.markdown("""
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-            <span style="font-size:28px;">📋</span>
-            <span style="font-size:24px;font-weight:700;">备案配方表输出系统</span>
-            <span style="font-size:13px;color:#888;background:#f0f0f0;padding:2px 12px;border-radius:12px;">v2.0</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <button onclick="window.location.reload()" style="background:none;border:1px solid #ddd;border-radius:6px;padding:4px 12px;cursor:pointer;">🔄</button>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # ---- 状态徽章 + 进度条 ----
+    # ---- 状态栏 ----
     progress_pct = max(0, min(100, (remaining / 3) * 100)) if not is_permanent else 100
     if is_permanent:
-        badge = '<span class="badge-success">✅ 永久授权</span>'
-        progress_html = '<div class="progress-container"><div class="progress-bar" style="width:100%;background:linear-gradient(90deg,#28a745,#6ab04c);"></div></div>'
+        badge_html = '<span class="badge-success">✅ 永久授权</span>'
     elif remaining > 1:
-        badge = f'<span class="badge-info">📊 剩余 {remaining} 次</span>'
-        progress_html = f'<div class="progress-container"><div class="progress-bar" style="width:{progress_pct}%;"></div></div>'
+        badge_html = f'<span class="badge-info">📊 剩余 {remaining} 次</span>'
     elif remaining == 1:
-        badge = f'<span class="badge-warning">⚠️ 剩余 {remaining} 次</span>'
-        progress_html = f'<div class="progress-container"><div class="progress-bar" style="width:{progress_pct}%;"></div></div>'
+        badge_html = f'<span class="badge-warning">⚠️ 剩余 {remaining} 次</span>'
     else:
-        badge = '<span class="badge-danger">🚫 次数已用完</span>'
-        progress_html = '<div class="progress-container"><div class="progress-bar" style="width:0%;"></div></div>'
+        badge_html = '<span class="badge-danger">🚫 次数已用完</span>'
     
     st.markdown(f"""
-    <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                <span style="font-size:14px;">👤 {st.session_state.user}</span>
-                {badge}
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <button onclick="document.getElementById('master_input').style.display='block'" style="background:#4a90d9;color:#fff;border:none;border-radius:6px;padding:4px 14px;cursor:pointer;font-size:13px;">🔑 万能码</button>
-                <button onclick="window.location.href='?logout=1'" style="background:#dc3545;color:#fff;border:none;border-radius:6px;padding:4px 14px;cursor:pointer;font-size:13px;">🚪 退出</button>
-            </div>
+    <div class="status-bar">
+        <div class="status-left">
+            <span style="font-size:14px;">👤 {st.session_state.user}</span>
+            {badge_html}
         </div>
-        {progress_html}
-        <div style="display:flex;justify-content:space-between;font-size:12px;color:#888;margin-top:4px;">
-            <span>剩余次数</span>
-            <span>{remaining}/3</span>
+        <div class="status-right">
+    """, unsafe_allow_html=True)
+    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
+    with col_btn1:
+        if st.button("🔑 万能码", key="master_btn"):
+            st.session_state.show_master_input = not st.session_state.show_master_input
+    with col_btn2:
+        if st.button("🔄 刷新", key="refresh_btn"):
+            st.rerun()
+    with col_btn3:
+        if st.button("🚪 退出", key="logout_btn"):
+            st.session_state.clear()
+            st.query_params.clear()
+            st.rerun()
+    st.markdown(f"""
         </div>
+    </div>
+    <div class="progress-container">
+        <div class="progress-bar" style="width:{progress_pct}%;"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:#888;margin-top:-8px;margin-bottom:12px;">
+        <span>剩余次数</span>
+        <span>{remaining}/3</span>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1158,23 +1135,19 @@ def main_page():
                     st.error("❌ 使用码无效")
     
     # ---- 步骤引导 ----
-    step_status = []
     master_uploaded = st.session_state.get("master_uploaded", False)
     recipe_uploaded = st.session_state.get("recipe_uploaded", False)
-    
     if master_uploaded and recipe_uploaded:
         current_step = 3
     elif master_uploaded:
         current_step = 2
     else:
         current_step = 1
-    
     steps = [
         ("📁", "上传文件", current_step >= 1),
         ("⚙️", "设置参数", current_step >= 2),
         ("🚀", "执行提取", current_step >= 3)
     ]
-    
     step_html = '<div class="steps">'
     for i, (icon, label, done) in enumerate(steps):
         cls = "step-item active" if (i + 1 == current_step) else "step-item done" if done else "step-item"
@@ -1204,8 +1177,6 @@ def main_page():
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
-        # 显示付款二维码
         if os.path.exists("wechat_qr.png"):
             st.image("wechat_qr.png", caption="微信收款码", width=250)
         else:
@@ -1220,7 +1191,6 @@ def main_page():
             <span class="badge">Step 1</span>
         </div>
     """, unsafe_allow_html=True)
-    
     col1, col2 = st.columns(2)
     with col1:
         master_file = st.file_uploader("母表（包含物料信息）", type=["xlsx", "xls"], key="master_upload")
@@ -1232,7 +1202,6 @@ def main_page():
         if recipe_file:
             st.session_state.recipe_uploaded = True
         recipe_pwd = st.text_input("配方表密码（如有）", type="password", placeholder="无密码可不填")
-    
     st.markdown('</div>', unsafe_allow_html=True)
     
     # ---- 功能卡片2：设置参数 ----
@@ -1243,7 +1212,6 @@ def main_page():
             <span class="badge">Step 2</span>
         </div>
     """, unsafe_allow_html=True)
-    
     col1, col2 = st.columns(2)
     with col1:
         title_text = st.text_input("表格标题（将作为文件名）", placeholder="例如：如微胶原抗皱面霜配方")
@@ -1254,7 +1222,6 @@ def main_page():
             codes = st.text_input("输入新原料代码（逗号分隔）", placeholder="例如：YG001,YG002")
             if codes:
                 new_material_codes = [c.strip().upper() for c in codes.split(",") if c.strip()]
-    
     st.markdown('</div>', unsafe_allow_html=True)
     
     # ---- 功能卡片3：执行提取 ----
@@ -1265,7 +1232,6 @@ def main_page():
             <span class="badge">Step 3</span>
         </div>
     """, unsafe_allow_html=True)
-    
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
         if st.button("🚀 开始提取", type="primary", use_container_width=True):
@@ -1298,10 +1264,9 @@ def main_page():
             st.session_state.master_uploaded = False
             st.session_state.recipe_uploaded = False
             st.rerun()
-    
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # ---- 使用说明折叠面板 ----
+    # ---- 使用说明 ----
     if st.session_state.get("show_help", False):
         with st.expander("📖 使用说明", expanded=True):
             st.markdown("""
@@ -1315,13 +1280,11 @@ def main_page():
                - 相同代码的配比会自动合并
             3. **设置参数**：输入标题、标记新原料
             4. **点击提取**：等待处理完成，下载结果表格
-            
             ### 💡 常见问题
             - **密码错误？** 重新输入即可，不扣次数
             - **格式不对？** 检查列名是否匹配
             - **复合原料？** 自动识别并合并显示
             - **新原料？** 在“是否存在新原料”中标记
-            
             ### 🔐 次数规则
             - 游客：免费 3 次（浏览器会话）
             - 注册用户：免费 3 次（永久保存）
@@ -1334,8 +1297,6 @@ def main_page():
         if result_path and os.path.exists(result_path):
             with open(result_path, "rb") as f:
                 file_data = f.read()
-            
-            # 预览数据
             try:
                 preview_df = pd.read_excel(result_path, nrows=5)
                 st.markdown("""
@@ -1346,7 +1307,6 @@ def main_page():
                 st.markdown('</div>', unsafe_allow_html=True)
             except:
                 pass
-            
             st.success("✅ 提取完成！")
             st.download_button(
                 label="📥 下载结果表格",
@@ -1355,13 +1315,11 @@ def main_page():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
-            # 清理文件
             try:
                 os.unlink(result_path)
             except:
                 pass
     
-    # ---- 底部 ----
     st.markdown(f"""
     <div class="footer">
         备案配方表输出系统 v2.0 · 使用 Streamlit 构建
@@ -1375,13 +1333,10 @@ def main_page():
 def main():
     init_db()
     init_session_state()
-    
-    # 处理退出
     if "logout" in st.query_params:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
-    
     if st.session_state.user:
         main_page()
     else:
