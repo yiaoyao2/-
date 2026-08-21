@@ -19,7 +19,7 @@ import msoffcrypto
 st.set_page_config(page_title="物料提取工具", layout="wide")
 
 # ============================================================
-# 2. 万能使用码（已更新）
+# 2. 万能使用码
 # ============================================================
 MASTER_CODES = ["YVIP888", "Y1006"]
 
@@ -34,8 +34,9 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
-            remaining_uses INTEGER DEFAULT 3,
+            remaining_uses INTEGER DEFAULT 0,
             is_permanent BOOLEAN DEFAULT 0,
+            is_free_used BOOLEAN DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -48,7 +49,7 @@ def hash_pwd(pwd):
 def get_user(username):
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
-    c.execute("SELECT id, username, password, remaining_uses, is_permanent FROM users WHERE username = ?", (username,))
+    c.execute("SELECT id, username, password, remaining_uses, is_permanent, is_free_used FROM users WHERE username = ?", (username,))
     user = c.fetchone()
     conn.close()
     return user
@@ -57,13 +58,28 @@ def create_user(username, password):
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
     try:
-        c.execute("INSERT INTO users (username, password, remaining_uses) VALUES (?, ?, 3)", (username, hash_pwd(password)))
+        # 新用户初始 remaining_uses = 0，is_free_used = 0
+        c.execute("INSERT INTO users (username, password, remaining_uses, is_free_used) VALUES (?, ?, 0, 0)", (username, hash_pwd(password)))
         conn.commit()
         conn.close()
         return True
     except:
         conn.close()
         return False
+
+def grant_free_uses(username):
+    """给注册用户赠送 3 次免费使用（仅当 is_free_used=0 时）"""
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+    c.execute("SELECT is_free_used FROM users WHERE username = ?", (username,))
+    result = c.fetchone()
+    if result and result[0] == 0:
+        c.execute("UPDATE users SET remaining_uses = remaining_uses + 3, is_free_used = 1 WHERE username = ?", (username,))
+        conn.commit()
+        conn.close()
+        return True
+    conn.close()
+    return False
 
 def deduct_use(username):
     conn = sqlite3.connect("users.db")
@@ -305,9 +321,14 @@ def get_column_letter_by_index(idx):
 
 
 # ============================================================
-# 5. 核心提取函数
+# 5. 核心提取函数（返回 (成功标志, 结果文件路径或错误信息)）
 # ============================================================
 def run_extraction(master_file, recipe_file, title_text, new_material_codes, master_pwd, recipe_pwd):
+    """
+    返回: (success, result_path_or_error_message)
+    """
+    master_path = None
+    recipe_path = None
     try:
         # ---- 处理母表 ----
         with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as f:
@@ -316,20 +337,21 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
         master_file.seek(0)
 
         if master_pwd:
-            decrypted_master = decrypt_file(master_path, master_pwd)
+            try:
+                decrypted_master = decrypt_file(master_path, master_pwd)
+            except Exception as e:
+                return False, f"母表密码错误: {str(e)}"
         else:
             with open(master_path, "rb") as f:
                 decrypted_master = io.BytesIO(f.read())
 
         df_master = process_merged_cells_from_bytes(decrypted_master)
         if df_master.empty:
-            os.unlink(master_path)
-            return None
+            return False, "母表数据为空，请检查文件"
 
         id_col = find_column_by_keywords(df_master, ['编码', '编号'])
         if id_col is None:
-            os.unlink(master_path)
-            return None
+            return False, "母表中未找到'编码'或'编号'列，请检查文件格式"
 
         name_col = find_column_by_keywords(df_master, ['中文名称', '中文名'])
         inci_col = find_column_by_keywords(df_master, ['INCI', 'INCE'])
@@ -346,7 +368,10 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
         recipe_file.seek(0)
 
         if recipe_pwd:
-            decrypted_recipe = decrypt_file(recipe_path, recipe_pwd)
+            try:
+                decrypted_recipe = decrypt_file(recipe_path, recipe_pwd)
+            except Exception as e:
+                return False, f"配方表密码错误: {str(e)}"
         else:
             with open(recipe_path, "rb") as f:
                 decrypted_recipe = io.BytesIO(f.read())
@@ -374,18 +399,16 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
                     break
 
         if header_row is None:
-            os.unlink(master_path)
-            os.unlink(recipe_path)
-            return None
+            return False, "配方表中未找到表头行（需包含'原料代码'和'配比'列）"
 
         code_matches = find_all_matching_columns(df_recipe_raw, code_keywords, header_row)
         ratio_matches = find_all_matching_columns(df_recipe_raw, ratio_keywords, header_row)
         short_name_matches = find_all_matching_columns(df_recipe_raw, short_name_keywords, header_row)
 
-        if len(code_matches) == 0 or len(ratio_matches) == 0:
-            os.unlink(master_path)
-            os.unlink(recipe_path)
-            return None
+        if len(code_matches) == 0:
+            return False, "配方表中未找到'原料代码'列"
+        if len(ratio_matches) == 0:
+            return False, "配方表中未找到'配比'列"
 
         code_col = code_matches[0][0]
         ratio_col = ratio_matches[0][0]
@@ -730,21 +753,25 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
         apply_excel_formatting(output_file, title_text, red_rows)
 
         # ---- 清理临时文件 ----
-        os.unlink(master_path)
-        os.unlink(recipe_path)
+        if master_path and os.path.exists(master_path):
+            os.unlink(master_path)
+        if recipe_path and os.path.exists(recipe_path):
+            os.unlink(recipe_path)
 
-        return output_file
+        return True, output_file
 
     except Exception as e:
-        try:
-            os.unlink(master_path)
-        except:
-            pass
-        try:
-            os.unlink(recipe_path)
-        except:
-            pass
-        raise e
+        if master_path and os.path.exists(master_path):
+            try:
+                os.unlink(master_path)
+            except:
+                pass
+        if recipe_path and os.path.exists(recipe_path):
+            try:
+                os.unlink(recipe_path)
+            except:
+                pass
+        return False, str(e)
 
 
 # ============================================================
@@ -752,7 +779,7 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
 # ============================================================
 def auth_page():
     st.title("🔐 登录 / 注册")
-    st.caption("新用户自动获得 3 次免费使用机会")
+    st.caption("注册新账号后，第一次成功提取将赠送 3 次免费使用机会")
     
     tab1, tab2 = st.tabs(["登录", "注册"])
     
@@ -763,6 +790,8 @@ def auth_page():
             user = get_user(username)
             if user and user[2] == hash_pwd(password):
                 st.session_state.user = username
+                # 检查是否需要赠送免费次数
+                grant_free_uses(username)
                 st.rerun()
             else:
                 st.error("用户名或密码错误")
@@ -786,8 +815,9 @@ def auth_page():
     
     st.markdown("---")
     st.caption("不想注册？")
-    if st.button("👤 以游客身份体验（需付费解锁）"):
+    if st.button("👤 以游客身份体验（免费 3 次）"):
         st.session_state.user = "guest"
+        st.session_state.guest_remaining = 3  # 游客初始化 3 次
         st.rerun()
 
 
@@ -798,8 +828,14 @@ def main_page():
     is_guest = (st.session_state.user == "guest")
     
     if is_guest:
-        remaining = 0
+        # 游客：从 session_state 读取剩余次数
+        if "guest_remaining" not in st.session_state:
+            st.session_state.guest_remaining = 3
+        remaining = st.session_state.guest_remaining
         is_permanent = st.session_state.get("guest_authorized", False)
+        # 游客次数 < 0 时修正为 0
+        if remaining < 0:
+            remaining = 0
     else:
         user = get_user(st.session_state.user)
         if user is None:
@@ -818,7 +854,7 @@ def main_page():
             if is_permanent:
                 st.success("✅ 游客 · 永久授权（已付费）")
             else:
-                st.warning("⚠️ 游客模式 · 需付费解锁")
+                st.info(f"👤 游客 · 剩余免费次数：{remaining} 次")
         else:
             if is_permanent:
                 st.success("✅ 永久授权用户")
@@ -851,30 +887,32 @@ def main_page():
     st.markdown("---")
     
     # ====== 判断是否有权限使用 ======
-    if not is_permanent:
+    if not is_permanent and remaining <= 0:
         if is_guest:
-            st.warning("⚠️ 游客模式需要付费解锁才能使用")
+            st.warning("⚠️ 游客免费次数已用完")
+            st.markdown("""
+            ### 🔐 继续使用，请选择以下方式：
+            - **注册/登录**：新账号赠送 3 次免费使用
+            - **付费解锁**：永久授权，无需再付费
+            """)
+            # 提供登录/注册入口
+            if st.button("🔑 去注册/登录", type="primary"):
+                st.session_state.user = None
+                st.rerun()
         else:
-            if remaining <= 0:
-                st.warning("⚠️ 您的免费次数已用完")
-            else:
-                # 有剩余次数，正常使用
-                pass
-        
-        if (is_guest) or (not is_guest and remaining <= 0):
+            st.warning("⚠️ 您的免费次数已用完")
             st.markdown("""
             ### 💳 付费解锁永久授权
             
             请扫描下方二维码支付 **¥29.9**，然后输入上方的 **万能使用码** 即可永久解锁。
-            
-            （付费后联系客服获取使用码，或使用您已有的万能码）
             """)
-            
-            if os.path.exists("wechat_qr.png"):
-                st.image("wechat_qr.png", caption="微信收款码", width=250)
-            else:
-                st.info("请将收款码图片命名为 wechat_qr.png 放在本程序同目录下")
-            return
+        
+        # 显示付费二维码
+        if os.path.exists("wechat_qr.png"):
+            st.image("wechat_qr.png", caption="微信收款码", width=250)
+        else:
+            st.info("请将收款码图片命名为 wechat_qr.png 放在本程序同目录下")
+        return
     
     # ====== 正常功能区域 ======
     st.subheader("📁 上传文件")
@@ -898,36 +936,51 @@ def main_page():
         if not master_file or not recipe_file:
             st.error("请上传母表和配方表")
         else:
-            if not is_guest and not is_permanent:
-                deduct_use(st.session_state.user)
-            
+            # 执行提取
             with st.spinner("⏳ 正在处理，请稍候..."):
-                try:
-                    result_file = run_extraction(
-                        master_file, 
-                        recipe_file, 
-                        title_text, 
-                        new_material_codes, 
-                        master_pwd, 
-                        recipe_pwd
-                    )
+                success, result = run_extraction(
+                    master_file, 
+                    recipe_file, 
+                    title_text, 
+                    new_material_codes, 
+                    master_pwd, 
+                    recipe_pwd
+                )
+                
+                if success:
+                    # 提取成功：扣减次数
+                    if is_guest:
+                        # 游客扣减
+                        st.session_state.guest_remaining -= 1
+                        # 如果是永久游客，不扣
+                        if is_permanent:
+                            st.session_state.guest_remaining += 1  # 恢复
+                    else:
+                        # 注册用户扣减
+                        if not is_permanent:
+                            deduct_use(st.session_state.user)
                     
-                    if result_file and os.path.exists(result_file):
-                        with open(result_file, "rb") as f:
+                    # 提供下载
+                    if os.path.exists(result):
+                        with open(result, "rb") as f:
                             file_data = f.read()
                         
                         st.success("✅ 提取完成！")
                         st.download_button(
                             label="📥 下载结果表格",
                             data=file_data,
-                            file_name=os.path.basename(result_file),
+                            file_name=os.path.basename(result),
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
-                        os.unlink(result_file)
+                        os.unlink(result)
                     else:
-                        st.error("❌ 处理失败，请检查文件格式是否正确（母表需包含'编码/编号'列，配方表需包含'原料代码'和'配比'列）")
-                except Exception as e:
-                    st.error(f"❌ 处理出错：{str(e)}")
+                        st.error("❌ 结果文件丢失，请重试")
+                else:
+                    # 提取失败：不扣次数，显示错误
+                    st.error(f"❌ 处理失败：{result}")
+            
+            # 刷新页面更新剩余次数
+            st.rerun()
 
 
 # ============================================================
@@ -942,6 +995,8 @@ def main():
         st.session_state.show_master_input = False
     if "guest_authorized" not in st.session_state:
         st.session_state.guest_authorized = False
+    if "guest_remaining" not in st.session_state:
+        st.session_state.guest_remaining = 3
     
     # 路由
     if st.session_state.user:
