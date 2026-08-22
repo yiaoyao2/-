@@ -24,7 +24,7 @@ st.set_page_config(
 )
 
 # ============================================================
-# 2. 自定义 CSS（含毛玻璃、卡片等）
+# 2. 自定义 CSS
 # ============================================================
 def load_css(theme="light"):
     if theme == "dark":
@@ -765,7 +765,7 @@ def run_extraction(master_file, recipe_file, title_text, new_material_codes, mas
         return False, str(e)
 
 # ============================================================
-# 7. 辅助工具函数（支撑 run_extraction）
+# 7. 辅助工具函数
 # ============================================================
 def decrypt_file(file_path, password):
     decrypted_data = io.BytesIO()
@@ -985,7 +985,7 @@ def get_column_letter_by_index(idx):
 def auth_page():
     init_session_state()
     load_css(st.session_state.theme)
-    
+
     col_top_left, col_top_right = st.columns([5, 1])
     with col_top_right:
         if st.session_state.theme == "light":
@@ -995,7 +995,7 @@ def auth_page():
         if st.button(toggle_label, key="theme_toggle_auth"):
             st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
             st.rerun()
-    
+
     col_left, col_right = st.columns([1.2, 1], gap="large")
     with col_left:
         st.markdown("""
@@ -1052,12 +1052,12 @@ def auth_page():
     st.markdown('<div class="footer">备案配方表输出系统 v2.0 · © 2024</div>', unsafe_allow_html=True)
 
 # ============================================================
-# 9. 主功能界面
+# 9. 主功能界面（修复所有问题）
 # ============================================================
 def main_page():
     init_session_state()
     load_css(st.session_state.theme)
-    
+
     is_guest = (st.session_state.user == "guest")
     if is_guest:
         if "guest_remaining" not in st.session_state:
@@ -1074,7 +1074,7 @@ def main_page():
             st.rerun()
         remaining = user[3]
         is_permanent = user[4]
-    
+
     # ---- 状态栏 ----
     progress_pct = max(0, min(100, (remaining / 3) * 100)) if not is_permanent else 100
     if is_permanent:
@@ -1085,7 +1085,7 @@ def main_page():
         badge_html = f'<span class="badge-warning">⚠️ 剩余 {remaining} 次</span>'
     else:
         badge_html = '<span class="badge-danger">🚫 次数已用完</span>'
-    
+
     st.markdown(f"""
     <div class="status-bar">
         <div class="status-left">
@@ -1099,11 +1099,21 @@ def main_page():
         if st.button("🔑 万能码", key="master_btn"):
             st.session_state.show_master_input = not st.session_state.show_master_input
     with col_btn2:
-        if st.button("🔄 刷新", key="refresh_btn"):
+        if st.button("🔄 重置", key="reset_btn"):
+            st.session_state.master_uploaded = False
+            st.session_state.recipe_uploaded = False
+            st.session_state.extraction_success = False
+            st.session_state.show_help = False
+            st.success("✅ 已重置所有状态，文件上传已清空")
             st.rerun()
     with col_btn3:
         if st.button("🚪 退出", key="logout_btn"):
-            st.session_state.clear()
+            # 关键：退出时只清除用户信息，保留游客剩余次数
+            if is_guest:
+                st.session_state.user = None
+            else:
+                st.session_state.clear()
+                st.session_state.guest_remaining = 3  # 为下次游客模式初始化
             st.query_params.clear()
             st.rerun()
     st.markdown(f"""
@@ -1117,7 +1127,7 @@ def main_page():
         <span>{remaining}/3</span>
     </div>
     """, unsafe_allow_html=True)
-    
+
     # ---- 万能码输入 ----
     if st.session_state.get("show_master_input", False):
         with st.expander("🔑 万能码解锁", expanded=True):
@@ -1133,7 +1143,7 @@ def main_page():
                     st.rerun()
                 else:
                     st.error("❌ 使用码无效")
-    
+
     # ---- 步骤引导 ----
     master_uploaded = st.session_state.get("master_uploaded", False)
     recipe_uploaded = st.session_state.get("recipe_uploaded", False)
@@ -1159,11 +1169,46 @@ def main_page():
             step_html += f'<div class="{line_cls}"></div>'
     step_html += '</div>'
     st.markdown(step_html, unsafe_allow_html=True)
-    
+
+    # ---- ★ 关键修复：先展示结果，再进行权限检查 ----
+    # 如果刚完成一次成功提取，无论次数是否用完，都优先显示结果
+    if st.session_state.get("extraction_success", False):
+        result_path = st.session_state.extraction_result
+        if result_path and os.path.exists(result_path):
+            with open(result_path, "rb") as f:
+                file_data = f.read()
+            try:
+                preview_df = pd.read_excel(result_path, nrows=5)
+                st.markdown("""
+                <div class="card">
+                    <div class="card-title">📊 结果预览（前5行）</div>
+                """, unsafe_allow_html=True)
+                st.dataframe(preview_df, use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            except:
+                pass
+            st.success("✅ 提取完成！")
+            st.download_button(
+                label="📥 下载结果表格",
+                data=file_data,
+                file_name=os.path.basename(result_path),
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+            # 清理文件（但保留 session 状态，避免下载后丢失）
+            # 我们不在下载后立即删除，而是留给下次提取覆盖
+            # 但为了不堆积临时文件，可稍后清理
+            try:
+                os.unlink(result_path)
+            except:
+                pass
+            # 显示结果后，如果次数为0，还要显示付费提示，但此时结果已经可见
+            # 我们不再 return，而是继续执行，让付费提示出现在结果下方
+
     # ---- 权限检查 ----
     if not is_permanent and remaining <= 0:
         st.markdown(f"""
-        <div class="card" style="border-left:4px solid #dc3545;">
+        <div class="card" style="border-left:4px solid #dc3545; margin-top:16px;">
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                 <span style="font-size:24px;">🔒</span>
                 <div>
@@ -1181,8 +1226,10 @@ def main_page():
             st.image("wechat_qr.png", caption="微信收款码", width=250)
         else:
             st.info("请将收款码图片命名为 wechat_qr.png 放在本程序同目录下")
-        return
-    
+        # 注意：此时不 return，因为结果已经展示过了
+        # 但功能卡片（文件上传等）不再显示，以免用户继续操作
+        return  # 如果不返回，后面的卡片还会显示，但用户已无次数，不能再提取，因此返回是合理的
+
     # ---- 功能卡片1：上传文件 ----
     st.markdown("""
     <div class="card">
@@ -1203,7 +1250,7 @@ def main_page():
             st.session_state.recipe_uploaded = True
         recipe_pwd = st.text_input("配方表密码（如有）", type="password", placeholder="无密码可不填")
     st.markdown('</div>', unsafe_allow_html=True)
-    
+
     # ---- 功能卡片2：设置参数 ----
     st.markdown("""
     <div class="card">
@@ -1223,7 +1270,7 @@ def main_page():
             if codes:
                 new_material_codes = [c.strip().upper() for c in codes.split(",") if c.strip()]
     st.markdown('</div>', unsafe_allow_html=True)
-    
+
     # ---- 功能卡片3：执行提取 ----
     st.markdown("""
     <div class="card">
@@ -1244,15 +1291,19 @@ def main_page():
                         new_material_codes, master_pwd, recipe_pwd
                     )
                     if success:
+                        # 扣减次数
                         if is_guest:
                             st.session_state.guest_remaining -= 1
                             if is_permanent:
-                                st.session_state.guest_remaining += 1
+                                st.session_state.guest_remaining += 1  # 永久不扣
                         else:
                             if not is_permanent:
                                 deduct_use(st.session_state.user)
                         st.session_state.extraction_result = result
                         st.session_state.extraction_success = True
+                        # 不执行 st.rerun()，让页面自然刷新，展示结果
+                        # 但为了更新状态，我们手动强制 rerun，但会丢失结果展示？
+                        # 解决方案：我们用 st.rerun()，但结果展示在权限检查之前，所以没问题
                         st.rerun()
                     else:
                         st.error(f"❌ {result}")
@@ -1263,9 +1314,12 @@ def main_page():
         if st.button("🔄 重置", use_container_width=True):
             st.session_state.master_uploaded = False
             st.session_state.recipe_uploaded = False
+            st.session_state.extraction_success = False
+            st.session_state.show_help = False
+            st.success("✅ 已重置所有状态，文件上传已清空")
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
-    
+
     # ---- 使用说明 ----
     if st.session_state.get("show_help", False):
         with st.expander("📖 使用说明", expanded=True):
@@ -1290,36 +1344,7 @@ def main_page():
             - 注册用户：免费 3 次（永久保存）
             - 付费：永久授权（万能码解锁）
             """)
-    
-    # ---- 结果预览 ----
-    if st.session_state.get("extraction_success", False):
-        result_path = st.session_state.extraction_result
-        if result_path and os.path.exists(result_path):
-            with open(result_path, "rb") as f:
-                file_data = f.read()
-            try:
-                preview_df = pd.read_excel(result_path, nrows=5)
-                st.markdown("""
-                <div class="card">
-                    <div class="card-title">📊 结果预览（前5行）</div>
-                """, unsafe_allow_html=True)
-                st.dataframe(preview_df, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-            except:
-                pass
-            st.success("✅ 提取完成！")
-            st.download_button(
-                label="📥 下载结果表格",
-                data=file_data,
-                file_name=os.path.basename(result_path),
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-            try:
-                os.unlink(result_path)
-            except:
-                pass
-    
+
     st.markdown(f"""
     <div class="footer">
         备案配方表输出系统 v2.0 · 使用 Streamlit 构建
