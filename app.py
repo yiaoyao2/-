@@ -1282,17 +1282,19 @@ def main_page():
             st.session_state.show_help = not st.session_state.get("show_help", False)
     with col3:
         if st.button("🔄 重置", use_container_width=True):
+            # 清空标志位
             st.session_state.master_uploaded = False
             st.session_state.recipe_uploaded = False
             st.session_state.extraction_success = False
             st.session_state.show_help = False
-            # 正确清空文件上传组件（删除 key）
+    
+            # 删除受保护的键（让 Streamlit 重新创建）
             st.session_state.pop('master_upload', None)
             st.session_state.pop('recipe_upload', None)
-            # 清空文本输入框
-            st.session_state.title_text = ""
-            st.session_state.master_pwd = ""
-            st.session_state.recipe_pwd = ""
+            st.session_state.pop('title_text', None)
+            st.session_state.pop('master_pwd', None)
+            st.session_state.pop('recipe_pwd', None)
+    
             st.success("✅ 已重置所有状态，文件、密码、标题均已清空")
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
