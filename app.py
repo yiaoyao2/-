@@ -1286,8 +1286,10 @@ def main_page():
             st.session_state.recipe_uploaded = False
             st.session_state.extraction_success = False
             st.session_state.show_help = False
-            st.session_state.master_upload = None
-            st.session_state.recipe_upload = None
+            # 正确清空文件上传组件（删除 key）
+            st.session_state.pop('master_upload', None)
+            st.session_state.pop('recipe_upload', None)
+            # 清空文本输入框
             st.session_state.title_text = ""
             st.session_state.master_pwd = ""
             st.session_state.recipe_pwd = ""
