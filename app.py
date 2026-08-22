@@ -121,15 +121,6 @@ def load_css(theme="light"):
     .stButton > button[kind="primary"]:hover {{
         box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
     }}
-    .stButton > button[kind="secondary"] {{
-        background: transparent !important;
-        border: 1px solid #dc3545 !important;
-        color: #dc3545 !important;
-    }}
-    .stButton > button[kind="secondary"]:hover {{
-        background: #dc3545 !important;
-        color: white !important;
-    }}
     .status-bar {{
         display: flex;
         justify-content: space-between;
@@ -312,8 +303,7 @@ def add_permanent(username):
 MASTER_CODES = ["YVIP888", "Y1006"]
 
 # ============================================================
-# 6. 核心提取函数（完整版）
-# ============================================================
+# 6. ===== 功能代码插入点 =====
 def run_extraction(master_file, recipe_file, title_text, new_material_codes, master_pwd, recipe_pwd):
     """
     返回: (success, result_path_or_error_message)
@@ -978,9 +968,10 @@ def get_column_letter_by_index(idx):
         result = chr(65 + idx % 26) + result
         idx //= 26
     return result
+# ============================================================
 
 # ============================================================
-# 8. 登录/注册界面
+# 7. 登录/注册界面
 # ============================================================
 def auth_page():
     init_session_state()
@@ -1052,7 +1043,7 @@ def auth_page():
     st.markdown('<div class="footer">备案配方表输出系统 v2.0 · © 2024</div>', unsafe_allow_html=True)
 
 # ============================================================
-# 9. 主功能界面（修复所有问题）
+# 8. 主功能界面
 # ============================================================
 def main_page():
     init_session_state()
@@ -1094,26 +1085,17 @@ def main_page():
         </div>
         <div class="status-right">
     """, unsafe_allow_html=True)
-    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
+    col_btn1, col_btn2 = st.columns([1, 1])
     with col_btn1:
         if st.button("🔑 万能码", key="master_btn"):
             st.session_state.show_master_input = not st.session_state.show_master_input
     with col_btn2:
-        if st.button("🔄 重置", key="reset_btn"):
-            st.session_state.master_uploaded = False
-            st.session_state.recipe_uploaded = False
-            st.session_state.extraction_success = False
-            st.session_state.show_help = False
-            st.success("✅ 已重置所有状态，文件上传已清空")
-            st.rerun()
-    with col_btn3:
         if st.button("🚪 退出", key="logout_btn"):
-            # 关键：退出时只清除用户信息，保留游客剩余次数
             if is_guest:
                 st.session_state.user = None
             else:
                 st.session_state.clear()
-                st.session_state.guest_remaining = 3  # 为下次游客模式初始化
+                st.session_state.guest_remaining = 3
             st.query_params.clear()
             st.rerun()
     st.markdown(f"""
@@ -1170,8 +1152,7 @@ def main_page():
     step_html += '</div>'
     st.markdown(step_html, unsafe_allow_html=True)
 
-    # ---- ★ 关键修复：先展示结果，再进行权限检查 ----
-    # 如果刚完成一次成功提取，无论次数是否用完，都优先显示结果
+    # ---- 结果预览 ----
     if st.session_state.get("extraction_success", False):
         result_path = st.session_state.extraction_result
         if result_path and os.path.exists(result_path):
@@ -1195,15 +1176,10 @@ def main_page():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
-            # 清理文件（但保留 session 状态，避免下载后丢失）
-            # 我们不在下载后立即删除，而是留给下次提取覆盖
-            # 但为了不堆积临时文件，可稍后清理
             try:
                 os.unlink(result_path)
             except:
                 pass
-            # 显示结果后，如果次数为0，还要显示付费提示，但此时结果已经可见
-            # 我们不再 return，而是继续执行，让付费提示出现在结果下方
 
     # ---- 权限检查 ----
     if not is_permanent and remaining <= 0:
@@ -1226,9 +1202,7 @@ def main_page():
             st.image("wechat_qr.png", caption="微信收款码", width=250)
         else:
             st.info("请将收款码图片命名为 wechat_qr.png 放在本程序同目录下")
-        # 注意：此时不 return，因为结果已经展示过了
-        # 但功能卡片（文件上传等）不再显示，以免用户继续操作
-        return  # 如果不返回，后面的卡片还会显示，但用户已无次数，不能再提取，因此返回是合理的
+        return
 
     # ---- 功能卡片1：上传文件 ----
     st.markdown("""
@@ -1243,12 +1217,12 @@ def main_page():
         master_file = st.file_uploader("母表（包含物料信息）", type=["xlsx", "xls"], key="master_upload")
         if master_file:
             st.session_state.master_uploaded = True
-        master_pwd = st.text_input("母表密码（如有）", type="password", placeholder="无密码可不填")
+        master_pwd = st.text_input("母表密码（如有）", type="password", placeholder="无密码可不填", key="master_pwd")
     with col2:
         recipe_file = st.file_uploader("配方表（原料代码+配比）", type=["xlsx", "xls"], key="recipe_upload")
         if recipe_file:
             st.session_state.recipe_uploaded = True
-        recipe_pwd = st.text_input("配方表密码（如有）", type="password", placeholder="无密码可不填")
+        recipe_pwd = st.text_input("配方表密码（如有）", type="password", placeholder="无密码可不填", key="recipe_pwd")
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ---- 功能卡片2：设置参数 ----
@@ -1261,7 +1235,7 @@ def main_page():
     """, unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        title_text = st.text_input("表格标题（将作为文件名）", placeholder="例如：如微胶原抗皱面霜配方")
+        title_text = st.text_input("表格标题（将作为文件名）", placeholder="例如：如微胶原抗皱面霜配方", key="title_text")
     with col2:
         new_material_option = st.radio("是否存在新原料？", ["否", "是"], horizontal=True)
         new_material_codes = None
@@ -1291,19 +1265,15 @@ def main_page():
                         new_material_codes, master_pwd, recipe_pwd
                     )
                     if success:
-                        # 扣减次数
                         if is_guest:
                             st.session_state.guest_remaining -= 1
                             if is_permanent:
-                                st.session_state.guest_remaining += 1  # 永久不扣
+                                st.session_state.guest_remaining += 1
                         else:
                             if not is_permanent:
                                 deduct_use(st.session_state.user)
                         st.session_state.extraction_result = result
                         st.session_state.extraction_success = True
-                        # 不执行 st.rerun()，让页面自然刷新，展示结果
-                        # 但为了更新状态，我们手动强制 rerun，但会丢失结果展示？
-                        # 解决方案：我们用 st.rerun()，但结果展示在权限检查之前，所以没问题
                         st.rerun()
                     else:
                         st.error(f"❌ {result}")
@@ -1316,7 +1286,12 @@ def main_page():
             st.session_state.recipe_uploaded = False
             st.session_state.extraction_success = False
             st.session_state.show_help = False
-            st.success("✅ 已重置所有状态，文件上传已清空")
+            st.session_state.master_upload = None
+            st.session_state.recipe_upload = None
+            st.session_state.title_text = ""
+            st.session_state.master_pwd = ""
+            st.session_state.recipe_pwd = ""
+            st.success("✅ 已重置所有状态，文件、密码、标题均已清空")
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1353,7 +1328,7 @@ def main_page():
     """, unsafe_allow_html=True)
 
 # ============================================================
-# 10. 程序入口
+# 9. 程序入口
 # ============================================================
 def main():
     init_db()
